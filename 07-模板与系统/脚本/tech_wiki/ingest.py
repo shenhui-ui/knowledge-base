@@ -95,18 +95,24 @@ def screen(candidates: list[dict], rules: dict) -> tuple[list[dict], str]:
         return [], f"筛选失败降级: {err}"
 
 
+def build_digest_prompt(rules: dict) -> str:
+    digest_rules = "\n".join(f"- {r}" for r in rules["wiki"].get("digest_rules", []))
+    writable_dirs = "\n".join(f"- {d}" for d in rules["wiki"].get("writable", []) if not d.endswith(".md"))
+    return (
+        "你是知识库编辑。根据索引与素材，决定合并到已有文章或新建文章。\n"
+        f"消化规则：\n{digest_rules}\n"
+        f"可写目标目录（target 必须位于以下其一之下，相对 vault 根）：\n{writable_dirs}\n"
+        '输出严格 JSON：{"action": "merge|create", "target": "相对vault路径.md", "title": "文章标题", "content": "markdown正文"}。'
+    )
+
+
 def digest(item: dict, rules: dict, vault_root: Path) -> Path:
     index_path = vault_root / rules["wiki"]["index"]
     index_text = index_path.read_text(encoding="utf-8") if index_path.exists() else ""
     body = item.get("text") or ""
     if not body and item.get("url"):
         body = fetch_article(item["url"], rules)
-    digest_rules = "\n".join(f"- {r}" for r in rules["wiki"].get("digest_rules", []))
-    prompt = (
-        "你是知识库编辑。根据索引与素材，决定合并到已有文章或新建文章。\n"
-        f"消化规则：\n{digest_rules}\n"
-        '输出严格 JSON：{"action": "merge|create", "target": "相对vault路径.md", "title": "文章标题", "content": "markdown正文"}。'
-    )
+    prompt = build_digest_prompt(rules)
     user = f"索引:\n{index_text[:3000]}\n\n素材:\n{body[:6000]}"
     result = ai_json(prompt, user, rules)
     target = Path(vault_root) / result["target"].lstrip("/")

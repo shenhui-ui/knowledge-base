@@ -57,6 +57,29 @@ def test_screen_ai_failure_degrades(monkeypatch):
     assert "降级" in note or "失败" in note
 
 
+def test_build_digest_prompt_includes_writable_dirs():
+    from ingest import build_digest_prompt
+
+    rules = {
+        "wiki": {
+            "digest_rules": ["主题重复 → 合并到已有文章补充"],
+            "writable": [
+                "03-软件开发",
+                "04-AI与机器学习",
+                "05-数据分析",
+                "06-项目",
+                "07-模板与系统/MOC/索引.md",
+                "07-模板与系统/MOC/操作日志.md",
+            ],
+        }
+    }
+    prompt = build_digest_prompt(rules)
+    for d in ("03-软件开发", "04-AI与机器学习", "05-数据分析", "06-项目"):
+        assert d in prompt
+    assert "索引.md" not in prompt
+    assert "操作日志.md" not in prompt
+
+
 def test_publish_updates_index_and_log_and_moves(tmp_path):
     rules = {
         "wiki": {

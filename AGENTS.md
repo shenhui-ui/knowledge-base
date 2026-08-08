@@ -53,5 +53,6 @@ wiki:
     - "新主题 → 新建文章（03-06 对应子目录，不带数字前缀）"
     - "每篇带 source 链接与 date"
     - "文章 frontmatter 含 type: ingest-note"
+    - "target 必须位于 writable 白名单目录下，目录名与白名单一致（含数字前缀，如 03-软件开发）"
 ```
 <!-- rules:wiki:end -->
