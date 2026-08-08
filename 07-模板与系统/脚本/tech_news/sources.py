@@ -97,7 +97,7 @@ def _fetch_rss(client: httpx.Client, src: dict, cfg: dict, raw_dir: Path, date: 
             return entries
         except Exception as err:
             last_err = err
-            delay = base**attempt
+            delay = base ** (attempt + 1)
             logger.warning("源 %s 第 %d 次失败: %s，%ds 后重试", src["name"], attempt + 1, err, delay)
             time.sleep(delay)
     raise SourceFailure(f"{src['name']}: {last_err}")
@@ -124,6 +124,8 @@ def _fetch_hn_backfill(client: httpx.Client, src: dict, start: str, end: str, ra
         for hit in data.get("hits", []):
             url = hit.get("url") or f"https://news.ycombinator.com/item?id={hit.get('objectID')}"
             published = hit.get("created_at", "")[:10]
+            if not (start <= published <= end):
+                continue
             entries.append(Entry(
                 url=url,
                 title=hit.get("title", ""),
