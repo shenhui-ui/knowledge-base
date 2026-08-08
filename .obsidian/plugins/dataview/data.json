@@ -1,0 +1,4 @@
+{
+  "enableDataviewJs": false,
+  "defaultDateFormat": "yyyy-MM-dd"
+}

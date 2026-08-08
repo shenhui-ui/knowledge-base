@@ -1,0 +1,12 @@
+{
+  "templates_folder": "07-模板与系统/模板",
+  "trigger_on_file_creation": true,
+  "auto_jump_to_cursor": true,
+  "enable_folder_templates": true,
+  "folder_templates": [
+    { "folder": "01-日记", "template": "07-模板与系统/模板/日记模板.md" },
+    { "folder": "06-项目", "template": "07-模板与系统/模板/项目概述模板.md" },
+    { "folder": "06-项目/决策记录", "template": "07-模板与系统/模板/决策记录模板.md" },
+    { "folder": "07-模板与系统/MOC", "template": "07-模板与系统/模板/MOC模板.md" }
+  ]
+}
