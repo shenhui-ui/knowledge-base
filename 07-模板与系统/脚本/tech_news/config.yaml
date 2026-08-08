@@ -1,0 +1,67 @@
+sources:
+  - name: hacker-news
+    kind: rss
+    label: Hacker News 精选
+    url: https://news.ycombinator.com/rss
+    backfill_api: https://hn.algolia.com/api/v1/search_by_date
+    archive_max_pages: 1
+  - name: ars-technica
+    kind: rss
+    label: Ars Technica 精选
+    url: https://feeds.arstechnica.com/arstechnica/index
+    archive_max_pages: 5
+  - name: the-verge
+    kind: rss
+    label: The Verge 精选
+    url: https://www.theverge.com/rss/index.xml
+    archive_max_pages: 5
+  - name: sspai
+    kind: rss
+    label: 少数派精选
+    url: https://sspai.com/feed
+    archive_max_pages: 3
+  - name: 36kr
+    kind: rss
+    label: 36氪精选
+    url: https://36kr.com/feed
+    archive_max_pages: 3
+  - name: infoq-cn
+    kind: rss
+    label: InfoQ 精选
+    url: https://www.infoq.cn/feed
+    archive_max_pages: 3
+  - name: jiqizhixin
+    kind: rss
+    label: 机器之心精选
+    url: https://www.jiqizhixin.com/rss
+    archive_max_pages: 3
+
+blacklist:
+  keywords:
+    - 推广
+    - 广告
+    - 限时抢购
+    - 免费领取
+  domains: []
+
+request:
+  user_agent: "TechNewsCollector/1.0 (personal knowledge base; contact: local-user)"
+  interval_seconds: 10
+  retries: 3
+  backoff_base: 2
+  timeout_seconds: 30
+
+model:
+  primary: deepseek-v4-flash
+  api_base: https://api.deepseek.com/v1/responses
+  api_key_env: DEEPSEEK_API_KEY
+
+chunk:
+  max_tokens: 8000
+
+output:
+  dir: /home/genrobot/Obsidian/02-资讯日报/日报
+  filename_prefix: 科技资讯
+
+summary:
+  max_chars: 200
