@@ -171,8 +171,15 @@ def _run(vault_root: Path, rules: dict, inbox: Path, daily_dir: Path, yesterday:
     candidates, moved = collect_candidates(inbox, daily_dir, yesterday, now, rules)
     if not candidates:
         return "无候选素材"
-    kept, note = screen(candidates, rules)
-    lines = [note]
+    inbox_cands = [c for c in candidates if c["kind"] == "inbox"]
+    daily_cands = [c for c in candidates if c["kind"] == "daily"]
+    lines = []
+    if daily_cands:
+        kept, note = screen(daily_cands, rules)
+        lines.append(note)
+    else:
+        kept, note = [], ""
+    kept = inbox_cands + kept
     for item in kept:
         try:
             article = digest(item, rules, vault_root)
