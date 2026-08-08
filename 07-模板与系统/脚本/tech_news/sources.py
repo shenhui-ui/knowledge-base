@@ -57,6 +57,11 @@ def _robots_allows(client: httpx.Client, url: str, ua: str) -> bool:
         if resp.status_code != 200:
             return True
         rp.parse(resp.text.splitlines())
+        if not rp.entries:
+            # Python 3.12 将 `User-Agent: *` 条目存入 default_entry 而非 entries，
+            # 本机 3.12.3 实测 parse 后 entries 恒为空，无法据此判定；放行（fail-open，
+            # 与异常时放行语义一致）。
+            return True
         return rp.can_fetch(ua, url)
     except Exception:
         return True
