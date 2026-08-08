@@ -37,6 +37,62 @@ def test_fallback_by_source_groups_label():
     assert sections[0].items[0]["url"] == "https://1"
 
 
+def test_extract_json_from_reasoning_only():
+    from classifier import _extract_json
+    data = {
+        "output": [
+            {"type": "reasoning", "content": [
+                {"type": "reasoning_text", "text": '先思考\n{"sections": [{"name": "AI", "items": []}]}\n结束'}
+            ]}
+        ]
+    }
+    assert _extract_json(data) == '{"sections": [{"name": "AI", "items": []}]}'
+
+
+def test_extract_json_from_output_text_preferred():
+    from classifier import _extract_json
+    data = {
+        "output": [
+            {"type": "reasoning", "content": [
+                {"type": "reasoning_text", "text": '先思考\n{"sections": []}\n'}
+            ]},
+            {"type": "message", "content": [
+                {"type": "output_text", "text": '{"sections": [{"name": "AI", "items": []}]}'}
+            ]},
+        ]
+    }
+    assert _extract_json(data) == '{"sections": [{"name": "AI", "items": []}]}'
+
+
+def test_extract_json_empty_when_nothing():
+    from classifier import _extract_json
+    assert _extract_json({"output": []}) == ""
+
+
+def test_extract_json_multiline_reasoning_takes_last_brace_span():
+    from classifier import _extract_json
+    data = {
+        "output": [
+            {"type": "reasoning", "content": [
+                {"type": "reasoning_text", "text": "先思考\n{\"a\": 1}\n中间\n{\"sections\": [{\"name\": \"AI\", \"items\": []}]}\n"}
+            ]}
+        ]
+    }
+    assert _extract_json(data) == '{"a": 1}\n中间\n{"sections": [{"name": "AI", "items": []}]}'
+
+
+def test_extract_json_reasoning_no_output_text_returns_json():
+    from classifier import _extract_json
+    data = {
+        "output": [
+            {"type": "reasoning", "content": [
+                {"type": "reasoning_text", "text": "{\"sections\": [{\"name\": \"AI\", \"items\": []}]}"}
+            ]}
+        ]
+    }
+    assert _extract_json(data) == '{"sections": [{"name": "AI", "items": []}]}'
+
+
 def test_classify_with_ai_uses_fake_api(monkeypatch):
     import classifier
 

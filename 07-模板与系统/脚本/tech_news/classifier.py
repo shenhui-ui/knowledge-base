@@ -49,6 +49,30 @@ def chunk_entries(entries: list[Entry], max_tokens: int) -> list[list[Entry]]:
     return chunks
 
 
+def _extract_json(data: dict) -> str:
+    """从 responses API 响应中提取完整分类 JSON 文本。
+
+    优先取 output_text（正常路径）；若 API 只返回 reasoning_text（长输入时
+    完整 JSON 可能放在 reasoning 中），取第一个 '{' 到最后一个 '}' 的子串。
+    """
+    parts: list[str] = []
+    for out in data.get("output", []):
+        for content in out.get("content", []):
+            if content.get("type") == "output_text":
+                parts.append(content.get("text", ""))
+    text = "".join(parts).strip()
+    if text:
+        return text
+    for out in data.get("output", []):
+        for content in out.get("content", []):
+            if content.get("type") == "reasoning_text":
+                text = content.get("text", "")
+                start, end = text.find("{"), text.rfind("}")
+                if start >= 0 and end > start:
+                    return text[start : end + 1]
+    return ""
+
+
 def classify_with_ai(chunk: list[Entry], prompt: str, cfg: dict) -> list[Section]:
     payload = {
         "model": cfg["model"]["primary"],
@@ -69,11 +93,7 @@ def classify_with_ai(chunk: list[Entry], prompt: str, cfg: dict) -> list[Section
         )
         resp.raise_for_status()
         data = resp.json()
-        text = ""
-        for out in data.get("output", []):
-            for content in out.get("content", []):
-                if content.get("type") == "output_text":
-                    text += content.get("text", "")
+        text = _extract_json(data)
         parsed = json.loads(text)
         usage = data.get("usage", {})
         cost_log = Path(__file__).parent / ".raw" / "cost.log"
