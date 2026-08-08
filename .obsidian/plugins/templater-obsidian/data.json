@@ -1,11 +1,32 @@
 {
-  "templates_folder": "07-模板与系统/模板",
-  "trigger_on_file_creation": true,
+  "data_version": 2,
+  "command_timeout": 5,
+  "templates_folder": "07-模板与系统/.模板",
+  "templates_pairs": [],
+  "trigger_on_file_creation_mode": "folder",
   "auto_jump_to_cursor": true,
-  "enable_folder_templates": true,
+  "jump_to_cursor_after_file_name": false,
+  "shell_path": "",
+  "user_scripts_folder": "",
   "folder_templates": [
-    { "folder": "01-日记", "template": "07-模板与系统/模板/日记模板.md" },
-    { "folder": "06-项目", "template": "07-模板与系统/模板/项目概述模板.md" },
-    { "folder": "07-模板与系统/MOC", "template": "07-模板与系统/模板/MOC模板.md" }
-  ]
+    {
+      "folder": "01-日记",
+      "template": "07-模板与系统/.模板/日记模板.md"
+    },
+    {
+      "folder": "06-项目",
+      "template": "07-模板与系统/.模板/项目概述模板.md"
+    },
+    {
+      "folder": "07-模板与系统/MOC",
+      "template": "07-模板与系统/.模板/MOC模板.md"
+    }
+  ],
+  "file_templates": [],
+  "syntax_highlighting": true,
+  "syntax_highlighting_mobile": false,
+  "enabled_templates_hotkeys": [],
+  "startup_templates": [],
+  "intellisense_render": "1",
+  "ignore_folders_on_creation": []
 }
