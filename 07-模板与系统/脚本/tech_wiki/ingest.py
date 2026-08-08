@@ -34,15 +34,25 @@ def insert_sorted(index_text: str, entry: str) -> str:
 def _parse_daily(daily_path: Path) -> list[dict]:
     text = daily_path.read_text(encoding="utf-8")
     items = []
-    for m in re.finditer(r"- \[([^\]]+)\]\((https?://[^)]+)\)", text):
-        items.append({
-            "kind": "daily",
-            "title": m.group(1).strip(),
-            "url": m.group(2).strip(),
-            "summary": "",
-            "text": "",
-            "source_path": None,
-        })
+    seen = set()
+    for pat in (
+        r"- \[([^\]]+)\]\((https?://[^)]+)\)",
+        r"- (.+?) \[↗\]\((https?://[^)]+)\)",
+        r"## \[([^\]]+)\]\((https?://[^)]+)\)",
+    ):
+        for m in re.finditer(pat, text):
+            url = m.group(2).strip()
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            items.append({
+                "kind": "daily",
+                "title": m.group(1).strip(),
+                "url": url,
+                "summary": "",
+                "text": "",
+                "source_path": None,
+            })
     return items
 
 
@@ -106,30 +116,84 @@ def build_digest_prompt(rules: dict) -> str:
     )
 
 
+class EmptyMaterialError(Exception):
+    """素材为空（含抓取失败），跳过该条目。"""
+
+
+def _resolve_target(raw: str, rules: dict, vault_root: Path) -> Path:
+    target = (vault_root / raw.lstrip("/")).resolve()
+    vault = vault_root.resolve()
+    if vault not in target.parents and target != vault:
+        raise ValueError(f"AI 目标越出 vault 边界: {target}")
+    for key in ("index", "log"):
+        sys_raw = rules["wiki"].get(key)
+        if sys_raw and target == (vault / sys_raw).resolve():
+            raise ValueError("禁止覆盖系统文件")
+    if not is_writable(target, rules):
+        raise ValueError(f"AI 目标不在可写区: {target}")
+    return target
+
+
+def _normalize_frontmatter(content: str, url: str) -> str:
+    today = datetime.now().strftime("%Y-%m-%d")
+    if not content.startswith("---"):
+        return f"---\ntype: ingest-note\nsource: {url}\ndate: {today}\n---\n" + content
+    lines = content.split("\n")
+    close_idx = None
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            close_idx = i
+            break
+    if close_idx is None:
+        content = content.rstrip("\n") + "\n---\n"
+        lines = content.split("\n")
+        for i in range(1, len(lines)):
+            if lines[i].strip() == "---":
+                close_idx = i
+                break
+    existing = set()
+    for line in lines[1:close_idx]:
+        m = re.match(r"^([A-Za-z_]\w*)\s*:", line.strip())
+        if m:
+            existing.add(m.group(1))
+    inserts = []
+    if "type" not in existing:
+        inserts.append("type: ingest-note")
+    if "source" not in existing:
+        inserts.append(f"source: {url}")
+    if "date" not in existing:
+        inserts.append(f"date: {today}")
+    if not inserts:
+        return content
+    fm = "\n".join(lines[1:close_idx] + inserts)
+    body = "\n".join(lines[close_idx + 1:])
+    return f"---\n{fm}\n---\n" + (body + "\n" if body else "")
+
+
 def digest(item: dict, rules: dict, vault_root: Path) -> Path:
-    index_path = vault_root / rules["wiki"]["index"]
-    index_text = index_path.read_text(encoding="utf-8") if index_path.exists() else ""
     body = item.get("text") or ""
     if not body and item.get("url"):
         body = fetch_article(item["url"], rules)
+    if not body.strip():
+        raise EmptyMaterialError(f"跳过空素材: {item.get('title', '')}")
+    index_path = vault_root / rules["wiki"]["index"]
+    index_text = index_path.read_text(encoding="utf-8") if index_path.exists() else ""
     prompt = build_digest_prompt(rules)
     user = f"索引:\n{index_text[:3000]}\n\n素材:\n{body[:6000]}"
     result = ai_json(prompt, user, rules)
-    target = Path(vault_root) / result["target"].lstrip("/")
-    target = target.resolve()
-    if vault_root.resolve() not in target.parents and target != vault_root.resolve():
-        raise ValueError(f"AI 目标越出 vault 边界: {target}")
-    if not is_writable(target, rules):
-        raise ValueError(f"AI 目标不在可写区: {target}")
+    target = _resolve_target(result["target"], rules, vault_root)
+    if target.exists():
+        existing = target.read_text(encoding="utf-8")[:2000]
+        merge_user = f"索引:\n{index_text[:3000]}\n\n已有文章内容:\n{existing}\n\n素材:\n{body[:6000]}"
+        result = ai_json(prompt, merge_user, rules)
+        target = _resolve_target(result["target"], rules, vault_root)
     target.parent.mkdir(parents=True, exist_ok=True)
-    content = result["content"]
-    if "type: ingest-note" not in content:
-        content = "---\ntype: ingest-note\n" + content.lstrip("---\n")
+    content = _normalize_frontmatter(result["content"], item.get("url") or "")
     target.write_text(content, encoding="utf-8")
     return target
 
 
-def publish(article: Path, rules: dict, vault_root: Path, moved: list[Path]) -> None:
+def publish(article: Path, rules: dict, vault_root: Path) -> None:
     index_path = vault_root / rules["wiki"]["index"]
     log_path = vault_root / rules["wiki"]["log"]
     index_path.parent.mkdir(parents=True, exist_ok=True)
@@ -141,11 +205,6 @@ def publish(article: Path, rules: dict, vault_root: Path, moved: list[Path]) -> 
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     with log_path.open("a", encoding="utf-8") as f:
         f.write(f"- {now} ingest 消化 {article.relative_to(vault_root)} → 索引更新\n")
-    archive = vault_root / "99-归档"
-    for src in moved:
-        if src.exists():
-            archive.mkdir(parents=True, exist_ok=True)
-            src.rename(archive / src.name)
 
 
 @contextlib.contextmanager
@@ -168,7 +227,7 @@ def run_pipeline(vault_root: Path) -> str:
 
 
 def _run(vault_root: Path, rules: dict, inbox: Path, daily_dir: Path, yesterday: str, now: float) -> str:
-    candidates, moved = collect_candidates(inbox, daily_dir, yesterday, now, rules)
+    candidates, _ = collect_candidates(inbox, daily_dir, yesterday, now, rules)
     if not candidates:
         return "无候选素材"
     inbox_cands = [c for c in candidates if c["kind"] == "inbox"]
@@ -180,16 +239,26 @@ def _run(vault_root: Path, rules: dict, inbox: Path, daily_dir: Path, yesterday:
     else:
         kept, note = [], ""
     kept = inbox_cands + kept
+    archived = 0
     for item in kept:
         try:
             article = digest(item, rules, vault_root)
-            publish(article, rules, vault_root, moved if item["kind"] == "inbox" else [])
+            publish(article, rules, vault_root)
             lines.append(f"消化: {item['title']} → {article.relative_to(vault_root)}")
+            if item["kind"] == "inbox":
+                src = item.get("source_path")
+                if src is not None and src.exists():
+                    archive = vault_root / "99-归档"
+                    archive.mkdir(parents=True, exist_ok=True)
+                    src.rename(archive / src.name)
+                    archived += 1
+        except EmptyMaterialError as err:
+            lines.append(str(err))
         except Exception as err:
             logger.error("消化失败 %s: %s", item.get("title"), err)
             lines.append(f"消化失败: {item.get('title')} ({err})")
-    if any(c["kind"] == "inbox" for c in candidates) and moved:
-        lines.append(f"收件箱归档: {len(moved)} 个文件移入 99-归档/")
+    if archived:
+        lines.append(f"收件箱归档: {archived} 个文件移入 99-归档/")
     return "\n".join(lines)
 
 
