@@ -1,4 +1,5 @@
 """过滤模块：URL 去重、黑名单、摘要截断。"""
+import re
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -37,6 +38,11 @@ def apply_blacklist(entries: list[Entry], cfg: dict) -> list[Entry]:
 def summarize_entries(entries: list[Entry], cfg: dict) -> list[Entry]:
     limit = cfg["summary"]["max_chars"]
     for e in entries:
-        if len(e.summary) > limit:
-            e.summary = e.summary[:limit]
+        s = e.summary
+        if "<" in s:
+            s = re.sub(r"<[^>]+>", " ", s)
+            s = re.sub(r"\s+", " ", s).strip()
+        if len(s) > limit:
+            s = s[:limit]
+        e.summary = s
     return entries

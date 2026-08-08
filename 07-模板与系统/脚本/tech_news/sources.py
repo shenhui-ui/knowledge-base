@@ -61,6 +61,8 @@ def _robots_allows(client: httpx.Client, url: str, ua: str) -> bool:
             # Python 3.12 将 `User-Agent: *` 条目存入 default_entry 而非 entries，
             # 本机 3.12.3 实测 parse 后 entries 恒为空，无法据此判定；放行（fail-open，
             # 与异常时放行语义一致）。
+            # 注意：仅含 `User-Agent: *` 规则的站点其 Disallow 在此不生效（Python 3.12
+            # default_entry 行为），新增源时留意站点 robots.txt 是否只有通用规则。
             return True
         return rp.can_fetch(ua, url)
     except Exception:
@@ -108,7 +110,12 @@ def _fetch_rss(client: httpx.Client, src: dict, cfg: dict, raw_dir: Path, date: 
     raise SourceFailure(f"{src['name']}: {last_err}")
 
 
-def _fetch_hn_backfill(client: httpx.Client, src: dict, start: str, end: str, raw_dir: Path) -> list[Entry]:
+def _fetch_hn_backfill(client: httpx.Client, src: dict, start: str, end: str, raw_dir: Path) -> tuple[list[Entry], bool]:
+    """回溯 HN 当日条目，返回 (entries, complete)。
+
+    complete 表示是否取全了 Algolia 的全部页；若因 archive_max_pages 截断
+    （page+1 >= max_pages 且 page+1 < nbPages）则为 False。
+    """
     t0 = int(datetime.fromisoformat(start + "T00:00:00").timestamp())
     t1 = int(datetime.fromisoformat(end + "T23:59:59").timestamp())
     entries: list[Entry] = []
@@ -139,11 +146,12 @@ def _fetch_hn_backfill(client: httpx.Client, src: dict, start: str, end: str, ra
                 source=src["name"],
                 raw_path=str(raw),
             ))
-        if page + 1 >= data.get("nbPages", 1) or page + 1 >= src.get("archive_max_pages", 5):
-            break
+        if page + 1 >= data.get("nbPages", 1):
+            return entries, True
+        if page + 1 >= src.get("archive_max_pages", 5):
+            return entries, False
         page += 1
         time.sleep(1)
-    return entries
 
 
 def _fetch_archive_pages(client: httpx.Client, src: dict, start: str, end: str, raw_dir: Path, cfg: dict) -> list[Entry]:
@@ -177,8 +185,8 @@ def fetch_entries(cfg: dict, date_range: tuple[str, str] | None = None, raw_dir:
                 logger.warning("robots.txt 禁止: %s", src["url"])
                 continue
             if date_range and src.get("backfill_api"):
-                entries = _fetch_hn_backfill(client, src, *date_range, raw_dir)
-                coverage[src["name"]] = "完整" if entries else "无历史"
+                entries, complete = _fetch_hn_backfill(client, src, *date_range, raw_dir)
+                coverage[src["name"]] = "完整" if (entries and complete) else ("部分" if entries else "无历史")
             elif date_range:
                 entries = _fetch_archive_pages(client, src, *date_range, raw_dir, cfg)
                 coverage[src["name"]] = "部分" if entries else "无历史"

@@ -4,7 +4,7 @@ sources:
     label: Hacker News 精选
     url: https://news.ycombinator.com/rss
     backfill_api: https://hn.algolia.com/api/v1/search_by_date
-    archive_max_pages: 1
+    archive_max_pages: 12
   - name: ars-technica
     kind: rss
     label: Ars Technica 精选

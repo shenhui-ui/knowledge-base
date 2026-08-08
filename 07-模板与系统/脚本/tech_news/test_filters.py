@@ -32,3 +32,16 @@ def test_summarize_truncates_200():
     long = _e("https://a.b/l", summary="字" * 500)
     out = summarize_entries([long], cfg)
     assert len(out[0].summary) == 200
+
+
+def test_summarize_strips_html_tags():
+    cfg = {"summary": {"max_chars": 200}}
+    html = _e(
+        "https://a.b/h",
+        summary='<div align="right"><a href="https://a.b/h">点击查看原文</a></div> 正文内容',
+    )
+    out = summarize_entries([html], cfg)
+    assert "<" not in out[0].summary
+    assert ">" not in out[0].summary
+    assert "点击查看原文" in out[0].summary
+    assert "正文内容" in out[0].summary

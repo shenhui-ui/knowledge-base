@@ -93,7 +93,7 @@ def test_extract_json_reasoning_no_output_text_returns_json():
     assert _extract_json(data) == '{"sections": [{"name": "AI", "items": []}]}'
 
 
-def test_classify_with_ai_uses_fake_api(monkeypatch):
+def test_classify_with_ai_uses_fake_api(monkeypatch, tmp_path):
     import classifier
 
     class FakeClient:
@@ -119,7 +119,48 @@ def test_classify_with_ai_uses_fake_api(monkeypatch):
 
     from types import SimpleNamespace
     monkeypatch.setattr(classifier, "_api_client", lambda cfg: FakeClient())
+    monkeypatch.setattr(classifier, "_cost_log_path", lambda: tmp_path / "cost.log")
     cfg = {"model": {"api_base": "http://x", "primary": "m", "api_key_env": "NOPE"}}
     sections = classify_with_ai([_e("https://a.b")], "prompt", cfg)
     assert sections[0].name == "AI"
     assert sections[0].items[0]["url"] == "https://a.b"
+    assert (tmp_path / "cost.log").exists()
+    assert "model=m" in (tmp_path / "cost.log").read_text()
+
+
+def test_classify_merges_same_name_sections(monkeypatch):
+    import classifier
+
+    e1, e2 = _e("https://a"), _e("https://b")
+    monkeypatch.setattr(classifier, "chunk_entries", lambda entries, max_tokens: [[e1], [e2]])
+    monkeypatch.setattr(
+        classifier,
+        "classify_with_ai",
+        lambda chunk, prompt, cfg: [Section("其他", [{"url": chunk[0].url, "title": chunk[0].title, "summary": chunk[0].summary}])],
+    )
+    cfg = {"chunk": {"max_tokens": 8000}}
+    sections, degraded = classifier.classify([e1, e2], cfg)
+    assert degraded is False
+    assert len(sections) == 1
+    assert sections[0].name == "其他"
+    assert [i["url"] for i in sections[0].items] == ["https://a", "https://b"]
+
+
+def test_classify_dedupes_items_by_url_across_sections(monkeypatch):
+    import classifier
+
+    e1, e2 = _e("https://a"), _e("https://b")
+    monkeypatch.setattr(classifier, "chunk_entries", lambda entries, max_tokens: [[e1], [e2]])
+    monkeypatch.setattr(
+        classifier,
+        "classify_with_ai",
+        lambda chunk, prompt, cfg: [
+            Section("AI", [{"url": "https://a", "title": "t", "summary": "s"}]),
+            Section("硬件", [{"url": "https://a", "title": "t", "summary": "s"}]),
+        ],
+    )
+    cfg = {"chunk": {"max_tokens": 8000}}
+    sections, degraded = classifier.classify([e1, e2], cfg)
+    assert degraded is False
+    assert [i["url"] for i in sections[0].items] == ["https://a"]
+    assert sections[1].items == []

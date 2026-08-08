@@ -73,6 +73,10 @@ def _extract_json(data: dict) -> str:
     return ""
 
 
+def _cost_log_path() -> Path:
+    return Path(__file__).parent / ".raw" / "cost.log"
+
+
 def classify_with_ai(chunk: list[Entry], prompt: str, cfg: dict) -> list[Section]:
     payload = {
         "model": cfg["model"]["primary"],
@@ -96,7 +100,7 @@ def classify_with_ai(chunk: list[Entry], prompt: str, cfg: dict) -> list[Section
         text = _extract_json(data)
         parsed = json.loads(text)
         usage = data.get("usage", {})
-        cost_log = Path(__file__).parent / ".raw" / "cost.log"
+        cost_log = _cost_log_path()
         cost_log.parent.mkdir(parents=True, exist_ok=True)
         with cost_log.open("a", encoding="utf-8") as f:
             f.write(
@@ -125,10 +129,18 @@ def classify(entries: list[Entry], cfg: dict) -> tuple[list[Section], bool]:
         return [], False
     prompt = (Path(__file__).parent / "system_prompt.md").read_text(encoding="utf-8")
     try:
-        sections: list[Section] = []
+        merged: list[Section] = []
+        seen_urls: set[str] = set()
         for chunk in chunk_entries(entries, cfg["chunk"]["max_tokens"]):
-            sections.extend(classify_with_ai(chunk, prompt, cfg))
-        return sections, False
+            for section in classify_with_ai(chunk, prompt, cfg):
+                items = [i for i in section.items if i.get("url") not in seen_urls]
+                seen_urls.update(i["url"] for i in items)
+                existing = next((m for m in merged if m.name == section.name), None)
+                if existing:
+                    existing.items.extend(items)
+                else:
+                    merged.append(Section(name=section.name, items=items))
+        return merged, False
     except Exception as err:
         logger.error("AI 分类失败，降级按来源分组: %s", err)
         return fallback_by_source(entries, cfg), True
