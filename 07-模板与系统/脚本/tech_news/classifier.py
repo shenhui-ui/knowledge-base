@@ -106,7 +106,8 @@ def classify_with_ai(chunk: list[Entry], prompt: str, cfg: dict) -> list[Section
             f.write(
                 f"{datetime.now().isoformat()} model={cfg['model']['primary']} "
                 f"input_tokens={usage.get('input_tokens', '?')} "
-                f"output_tokens={usage.get('output_tokens', '?')}\n"
+                f"output_tokens={usage.get('output_tokens', '?')} "
+                f"cached_tokens={usage.get('input_tokens_details', {}).get('cached_tokens', 0)}\n"
             )
         return [Section(name=s["name"], items=s["items"]) for s in parsed["sections"]]
     finally:
