@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
 
 import requests
@@ -16,6 +17,22 @@ def _api_key(rules: dict) -> str:
     if auth.exists():
         return json.loads(auth.read_text())["OPENAI_API_KEY"]
     raise RuntimeError("无 API key")
+
+
+def _cost_log() -> Path:
+    return Path(__file__).parent / ".raw" / "cost.log"
+
+
+def _write_cost_log(model: str, usage: dict) -> None:
+    log = _cost_log()
+    log.parent.mkdir(parents=True, exist_ok=True)
+    with log.open("a", encoding="utf-8") as f:
+        f.write(
+            f"{datetime.now().isoformat()} model={model} "
+            f"input_tokens={usage.get('input_tokens', '?')} "
+            f"output_tokens={usage.get('output_tokens', '?')} "
+            f"cached_tokens={usage.get('input_tokens_details', {}).get('cached_tokens', 0)}\n"
+        )
 
 
 def _extract_text(data: dict) -> str:
@@ -47,9 +64,11 @@ def ai_call(messages: list[dict], rules: dict) -> str:
         timeout=180,
     )
     resp.raise_for_status()
-    text = _extract_text(resp.json())
+    data = resp.json()
+    text = _extract_text(data)
     if not text:
         raise RuntimeError("AI 响应无文本")
+    _write_cost_log(model, data.get("usage", {}))
     return text
 
 
@@ -62,4 +81,18 @@ def ai_json(prompt: str, user_content: str, rules: dict) -> dict:
     try:
         return json.loads(text)
     except json.JSONDecodeError as err:
-        raise RuntimeError(f"AI 返回非 JSON: {err}") from err
+        retry_content = (
+            f"{user_content}\n\n【上次输出不是合法 JSON，错误：{err}。"
+            f"请只输出合法 JSON。上次输出：{text[:200]}】"
+        )
+        text = ai_call(
+            [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": retry_content},
+            ],
+            rules,
+        )
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as err2:
+            raise RuntimeError(f"AI 返回非 JSON: {err2}") from err2

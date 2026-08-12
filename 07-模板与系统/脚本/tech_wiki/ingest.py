@@ -93,7 +93,7 @@ def screen(candidates: list[dict], rules: dict) -> tuple[list[dict], str]:
     )
     payload = []
     for i, c in enumerate(candidates):
-        payload.append({"index": i, "title": c["title"], "summary": c.get("summary", "")[:200], "text": c.get("text", "")[:500]})
+        payload.append({"index": i, "title": c["title"], "summary": c.get("summary", "")[:200]})
     try:
         result = ai_json(prompt, str(payload), rules)
         kept_idx = {item["index"] for item in result.get("keep", [])}
