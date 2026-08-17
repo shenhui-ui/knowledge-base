@@ -54,9 +54,50 @@ def _extract_text(data: dict) -> str:
     return ""
 
 
+def _extract_json_text(text: str) -> str:
+    """从可能带 ```json 围栏/散文的文本中提取 JSON 子串。"""
+    start, end = text.find("{"), text.rfind("}")
+    if start == -1 or end <= start:
+        raise RuntimeError("AI 输出中无 JSON 对象")
+    return text[start:end + 1]
+
+
+def _ai_call_chat(messages: list[dict], model: str) -> str:
+    """本地模型（Ollama）OpenAI 兼容 chat completions 调用。"""
+    resp = requests.post(
+        "http://localhost:11434/v1/chat/completions",
+        json={
+            "model": model,
+            "messages": messages,
+            "stream": False,
+            "response_format": {"type": "json_object"},
+            "options": {"temperature": 0.2, "num_predict": 4000},
+        },
+        timeout=900,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    text = data["choices"][0]["message"]["content"]
+    if not text:
+        raise RuntimeError("AI 响应无文本")
+    usage = data.get("usage", {})
+    _write_cost_log(
+        model,
+        {
+            "input_tokens": usage.get("prompt_tokens", "?"),
+            "output_tokens": usage.get("completion_tokens", "?"),
+            "input_tokens_details": {},
+        },
+    )
+    return text
+
+
 def ai_call(messages: list[dict], rules: dict) -> str:
-    model = rules.get("model", {}).get("primary", "deepseek-v4-flash")
-    base = rules.get("model", {}).get("api_base", "https://api.deepseek.com/v1/responses")
+    model_cfg = rules.get("model", {})
+    model = model_cfg.get("primary", "deepseek-v4-flash")
+    if model_cfg.get("provider") == "ollama":
+        return _ai_call_chat(messages, model)
+    base = model_cfg.get("api_base", "https://api.deepseek.com/v1/responses")
     resp = requests.post(
         base,
         json={"model": model, "input": messages},
@@ -79,8 +120,8 @@ def ai_json(prompt: str, user_content: str, rules: dict) -> dict:
     ]
     text = ai_call(messages, rules)
     try:
-        return json.loads(text)
-    except json.JSONDecodeError as err:
+        return json.loads(_extract_json_text(text))
+    except (json.JSONDecodeError, RuntimeError) as err:
         retry_content = (
             f"{user_content}\n\n【上次输出不是合法 JSON，错误：{err}。"
             f"请只输出合法 JSON。上次输出：{text[:200]}】"
@@ -93,6 +134,6 @@ def ai_json(prompt: str, user_content: str, rules: dict) -> dict:
             rules,
         )
         try:
-            return json.loads(text)
-        except json.JSONDecodeError as err2:
+            return json.loads(_extract_json_text(text))
+        except (json.JSONDecodeError, RuntimeError) as err2:
             raise RuntimeError(f"AI 返回非 JSON: {err2}") from err2

@@ -57,5 +57,8 @@ wiki:
     - "文章 frontmatter 含 type: ingest-note"
     - "source 必须是原文链接（URL）或原文来源名"
     - "target 必须位于 writable 白名单目录下，目录名与白名单一致（含数字前缀，如 03-软件开发）"
+  model:
+    provider: ollama
+    primary: deepseek-r1:7b
 ```
 <!-- rules:wiki:end -->

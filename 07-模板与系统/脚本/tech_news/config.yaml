@@ -52,8 +52,9 @@ request:
   timeout_seconds: 30
 
 model:
-  primary: deepseek-v4-flash
-  api_base: https://api.deepseek.com/v1/responses
+  provider: ollama
+  primary: deepseek-r1:7b
+  api_base: http://localhost:11434/v1/chat/completions
   api_key_env: DEEPSEEK_API_KEY
 
 chunk:

@@ -78,40 +78,111 @@ def _cost_log_path() -> Path:
 
 
 def classify_with_ai(chunk: list[Entry], prompt: str, cfg: dict) -> list[Section]:
-    payload = {
-        "model": cfg["model"]["primary"],
-        "input": [
-            {"role": "system", "content": prompt},
-            {"role": "user", "content": json.dumps(
-                [{"url": e.url, "title": e.title, "summary": e.summary, "date": e.published} for e in chunk],
-                ensure_ascii=False,
-            )},
-        ],
-    }
-    client = _api_client(cfg)
-    try:
-        resp = client.post(
-            cfg["model"]["api_base"],
-            json=payload,
-            headers={"Authorization": f"Bearer {_api_key(cfg)}"},
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        text = _extract_json(data)
-        parsed = json.loads(text)
-        usage = data.get("usage", {})
-        cost_log = _cost_log_path()
-        cost_log.parent.mkdir(parents=True, exist_ok=True)
-        with cost_log.open("a", encoding="utf-8") as f:
-            f.write(
-                f"{datetime.now().isoformat()} model={cfg['model']['primary']} "
-                f"input_tokens={usage.get('input_tokens', '?')} "
-                f"output_tokens={usage.get('output_tokens', '?')} "
-                f"cached_tokens={usage.get('input_tokens_details', {}).get('cached_tokens', 0)}\n"
+    messages = [
+        {"role": "system", "content": prompt},
+        {"role": "user", "content": json.dumps(
+            [{"url": e.url, "title": e.title, "summary": e.summary, "date": e.published} for e in chunk],
+            ensure_ascii=False,
+        )},
+    ]
+    if cfg["model"].get("provider") == "ollama":
+        text = _classify_ollama(messages, cfg)
+    else:
+        payload = {"model": cfg["model"]["primary"], "input": messages}
+        client = _api_client(cfg)
+        try:
+            resp = client.post(
+                cfg["model"]["api_base"],
+                json=payload,
+                headers={"Authorization": f"Bearer {_api_key(cfg)}"},
             )
-        return [Section(name=s["name"], items=s["items"]) for s in parsed["sections"]]
-    finally:
-        client.close()
+            resp.raise_for_status()
+            data = resp.json()
+            text = _extract_json(data)
+            usage = data.get("usage", {})
+        finally:
+            client.close()
+        _write_cost_log(cfg["model"]["primary"], usage)
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError as err:
+        retry_messages = [
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": (
+                messages[-1]["content"]
+                + f"\n\n【上次输出不是合法 JSON，错误：{err}。"
+                f"请只输出合法 JSON。上次输出：{text[:200]}】"
+            )},
+        ]
+        if cfg["model"].get("provider") == "ollama":
+            text = _classify_ollama(retry_messages, cfg)
+        else:
+            client = _api_client(cfg)
+            try:
+                resp = client.post(
+                    cfg["model"]["api_base"],
+                    json={"model": cfg["model"]["primary"], "input": retry_messages},
+                    headers={"Authorization": f"Bearer {_api_key(cfg)}"},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                text = _extract_json(data)
+                usage = data.get("usage", {})
+            finally:
+                client.close()
+            _write_cost_log(cfg["model"]["primary"], usage)
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError as err2:
+            raise RuntimeError(f"分类返回非 JSON: {err2}") from err2
+    return [Section(name=s["name"], items=s["items"]) for s in parsed["sections"]]
+
+
+def _classify_ollama(messages: list[dict], cfg: dict) -> str:
+    """本地模型（Ollama）分类调用，返回 JSON 文本。"""
+    import requests
+
+    resp = requests.post(
+        "http://localhost:11434/v1/chat/completions",
+        json={
+            "model": cfg["model"]["primary"],
+            "messages": messages,
+            "stream": False,
+            "response_format": {"type": "json_object"},
+            "options": {"temperature": 0.2, "num_predict": 4000},
+        },
+        timeout=900,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    text = data["choices"][0]["message"]["content"]
+    if not text:
+        raise RuntimeError("AI 响应无文本")
+    usage = data.get("usage", {})
+    _write_cost_log(
+        cfg["model"]["primary"],
+        {
+            "input_tokens": usage.get("prompt_tokens", "?"),
+            "output_tokens": usage.get("completion_tokens", "?"),
+            "input_tokens_details": {},
+        },
+    )
+    start, end = text.find("{"), text.rfind("}")
+    if start == -1 or end <= start:
+        raise RuntimeError("本地模型输出中无 JSON 对象")
+    return text[start : end + 1]
+
+
+def _write_cost_log(model: str, usage: dict) -> None:
+    cost_log = _cost_log_path()
+    cost_log.parent.mkdir(parents=True, exist_ok=True)
+    with cost_log.open("a", encoding="utf-8") as f:
+        f.write(
+            f"{datetime.now().isoformat()} model={model} "
+            f"input_tokens={usage.get('input_tokens', '?')} "
+            f"output_tokens={usage.get('output_tokens', '?')} "
+            f"cached_tokens={usage.get('input_tokens_details', {}).get('cached_tokens', 0)}\n"
+        )
 
 
 def fallback_by_source(entries: list[Entry], cfg: dict) -> list[Section]:
