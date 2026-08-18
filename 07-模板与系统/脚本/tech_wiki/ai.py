@@ -93,7 +93,7 @@ def _ai_call_chat(messages: list[dict], model: str) -> str:
 
 
 def ai_call(messages: list[dict], rules: dict) -> str:
-    model_cfg = rules.get("model", {})
+    model_cfg = rules.get("wiki", {}).get("model") or rules.get("model", {})
     model = model_cfg.get("primary", "deepseek-v4-flash")
     if model_cfg.get("provider") == "ollama":
         return _ai_call_chat(messages, model)
