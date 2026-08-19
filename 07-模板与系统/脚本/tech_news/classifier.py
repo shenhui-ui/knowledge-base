@@ -200,19 +200,23 @@ def classify(entries: list[Entry], cfg: dict) -> tuple[list[Section], bool]:
     if not entries:
         return [], False
     prompt = (Path(__file__).parent / "system_prompt.md").read_text(encoding="utf-8")
-    try:
-        merged: list[Section] = []
-        seen_urls: set[str] = set()
-        for chunk in chunk_entries(entries, cfg["chunk"]["max_tokens"]):
-            for section in classify_with_ai(chunk, prompt, cfg):
-                items = [i for i in section.items if i.get("url") not in seen_urls]
-                seen_urls.update(i["url"] for i in items)
-                existing = next((m for m in merged if m.name == section.name), None)
-                if existing:
-                    existing.items.extend(items)
-                else:
-                    merged.append(Section(name=section.name, items=items))
-        return merged, False
-    except Exception as err:
-        logger.error("AI 分类失败，降级按来源分组: %s", err)
-        return fallback_by_source(entries, cfg), True
+    merged: list[Section] = []
+    seen_urls: set[str] = set()
+    degraded = False
+    chunks = chunk_entries(entries, cfg["chunk"]["max_tokens"])
+    for idx, chunk in enumerate(chunks, 1):
+        try:
+            sections = classify_with_ai(chunk, prompt, cfg)
+        except Exception as err:
+            logger.warning("分段 %d/%d 分类失败，该段按来源分组: %s", idx, len(chunks), err)
+            degraded = True
+            sections = fallback_by_source(chunk, cfg)
+        for section in sections:
+            items = [i for i in section.items if i.get("url") not in seen_urls]
+            seen_urls.update(i["url"] for i in items)
+            existing = next((m for m in merged if m.name == section.name), None)
+            if existing:
+                existing.items.extend(items)
+            else:
+                merged.append(Section(name=section.name, items=items))
+    return merged, degraded

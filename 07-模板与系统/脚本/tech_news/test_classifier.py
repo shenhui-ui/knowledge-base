@@ -119,6 +119,7 @@ def test_classify_with_ai_uses_fake_api(monkeypatch, tmp_path):
 
     from types import SimpleNamespace
     monkeypatch.setattr(classifier, "_api_client", lambda cfg: FakeClient())
+    monkeypatch.setattr(classifier, "_api_key", lambda cfg: "fake-key")
     monkeypatch.setattr(classifier, "_cost_log_path", lambda: tmp_path / "cost.log")
     cfg = {"model": {"api_base": "http://x", "primary": "m", "api_key_env": "NOPE"}}
     sections = classify_with_ai([_e("https://a.b")], "prompt", cfg)

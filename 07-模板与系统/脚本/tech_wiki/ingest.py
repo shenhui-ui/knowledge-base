@@ -96,7 +96,14 @@ def screen(candidates: list[dict], rules: dict) -> tuple[list[dict], str]:
         payload.append({"index": i, "title": c["title"], "summary": c.get("summary", "")[:200]})
     try:
         result = ai_json(prompt, str(payload), rules)
-        kept_idx = {item["index"] for item in result.get("keep", [])}
+        kept_idx = set()
+        for item in result.get("keep", []):
+            if isinstance(item, dict) and "index" in item:
+                kept_idx.add(item["index"])
+            elif isinstance(item, int):
+                kept_idx.add(item)
+            elif isinstance(item, str) and item.isdigit():
+                kept_idx.add(int(item))
         kept = [c for i, c in enumerate(candidates) if i in kept_idx]
         note = f"筛选: 保留 {len(kept)}/{len(candidates)}"
         return kept, note

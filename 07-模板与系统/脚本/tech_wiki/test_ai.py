@@ -67,6 +67,7 @@ def test_ai_call_writes_cost_log_with_cached_tokens(monkeypatch, tmp_path):
             }
 
     monkeypatch.setattr(ai_module.requests, "post", lambda *a, **kw: FakeResp())
+    monkeypatch.setattr(ai_module, "_api_key", lambda rules: "fake-key")
     monkeypatch.setattr(ai_module, "_cost_log", lambda: tmp_path / "cost.log")
     text = ai_call([{"role": "user", "content": "hi"}], _rules())
     assert text == '{"ok": true}'
