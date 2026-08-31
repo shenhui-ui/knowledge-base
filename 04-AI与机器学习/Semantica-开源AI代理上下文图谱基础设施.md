@@ -47,8 +47,9 @@ pip install semantica
 
 Semantica 面向需要高确定性、可解释性和合规性的 AI 代理场景，将知识图谱、决策溯源和本体治理整合为一个自托管基础设施层，是当前 AI 治理领域值得关注的开源方案。
 
----
+## 项目数据
 
-- **source**: [semantica-agi/semantica - GitHub](https://github.com/semantica-agi/semantica)
-- **date**: 2025-04-26
-- **type**: ingest-note
+- Star 6.6k / fork 696 / 2315 次提交，活跃维护
+- 标语：Graph-Native Infrastructure for Context and Accountable AI Systems — The Open Source Palantir for AI Agents
+- 仓库包含 cookbook、deploy、docs、examples、explorer、integrations、mcp、plugins 等模块，架构见 `ARCHITECTURE.md`
+- 文档覆盖 Quick Start、Decision Intelligence、Context Graphs、Recipe: Audit Trail、Module Reference、Integrations、CLI、Performance 等

@@ -34,3 +34,7 @@ Tailscale的控制平面内部由一系列协调服务器（shard）组成。每
 文章详细描述了取证过程，并最终揭示了SQLite中一个存在16年的bug。Tailscale对多次中断表示歉意，并公开了问题的来龙去脉。
 
 （原文未完，此处为素材摘要）
+
+## See Also
+
+- [[antithesis-sqlite-wal-reset-bug]]（Antithesis + Claude 一小时复现同一 bug 的完整过程）

@@ -3,9 +3,8 @@ type: ingest-note
 date: 2026-08-09
 source: https://www.infoq.cn/article/OG03ezJaBkdOd1G3rc1b
 ---
-type: ingest-note
-来源：InfoQ（2026-08-08）
-原文：https://www.infoq.com/news/2026/07/lambda-self-managed-storage/
+
+来源：InfoQ（2026-08-08）｜原文：https://www.infoq.com/news/2026/07/lambda-self-managed-storage/
 
 亚马逊云科技宣布为 Lambda 推出自管理代码存储，函数和层可直接引用客户自有 S3 存储桶中的部署包，不再存放在 Lambda 托管存储中。这一变化取消了每个区域的代码存储配额（Lambda 托管存储默认配额从 75 GB 提高到 300 GB），但**单个函数的包大小限制不变**：基于 zip 的函数仍为压缩后 50 MB、解压后 250 MB，容器镜像仍为 10 GB。
 
