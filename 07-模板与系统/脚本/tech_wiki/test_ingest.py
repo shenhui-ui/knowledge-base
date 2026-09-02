@@ -294,3 +294,80 @@ def test_digest_preserves_closed_frontmatter_without_source(monkeypatch, tmp_pat
     text = out.read_text(encoding="utf-8")
     assert text.startswith("---\ntype: ingest-note\nsource: https://x\ndate: ")
     assert text.endswith("---\n# 标题\n正文\n")
+
+
+def test_force_md_suffix_variants():
+    from ingest import _force_md_suffix
+
+    base = Path("/vault/03-软件开发")
+    assert _force_md_suffix(base / "a.pdf") == base / "a.md"
+    assert _force_md_suffix(base / "a.json") == base / "a.md"
+    assert _force_md_suffix(base / "a") == base / "a.md"
+    assert _force_md_suffix(base / "vllm_project_0.28.0") == base / "vllm_project_0.28.0.md"
+    assert _force_md_suffix(base / "a.md") == base / "a.md"
+
+
+def test_resolve_target_forces_md(tmp_path):
+    import ingest
+
+    rules = {"wiki": {"writable": ["03-软件开发"]}}
+    out = ingest._resolve_target("03-软件开发/Netbsd-for-enterprise-network.pdf", rules, tmp_path)
+    assert out == tmp_path / "03-软件开发" / "Netbsd-for-enterprise-network.md"
+
+
+def test_digest_redirects_near_duplicate_to_existing(monkeypatch, tmp_path):
+    import ingest
+
+    old = tmp_path / "03-软件开发" / ".NET-MAUI-11-Preview-6-架构更新.md"
+    old.parent.mkdir(parents=True)
+    old.write_text("# 旧文", encoding="utf-8")
+    rules = {
+        "wiki": {
+            "index": "07-模板与系统/MOC/索引.md",
+            "log": "07-模板与系统/MOC/操作日志.md",
+            "writable": ["03-软件开发"],
+        }
+    }
+    sysdir = tmp_path / "07-模板与系统/MOC"
+    sysdir.mkdir(parents=True)
+    (sysdir / "索引.md").write_text("- [[.NET-MAUI-11-Preview-6-架构更新]]\n", encoding="utf-8")
+    calls = []
+
+    def fake_ai(prompt, content, rules):
+        calls.append(content)
+        if len(calls) == 1:
+            return {"action": "create", "target": "03-软件开发/NET-MAUI-11-Preview-6-架构更新.md", "title": "x", "content": "# 新"}
+        return {"action": "merge", "target": "03-软件开发/NET-MAUI-11-Preview-6-架构更新.md", "title": "x", "content": "# 旧文\n# 新"}
+
+    monkeypatch.setattr(ingest, "ai_json", fake_ai)
+    item = {"kind": "inbox", "title": "t", "url": "", "text": "素材"}
+    out = ingest.digest(item, rules, tmp_path)
+    assert out == old
+    assert len(calls) == 2
+    assert "旧文" in old.read_text(encoding="utf-8")
+    assert "新" in old.read_text(encoding="utf-8")
+
+
+def test_digest_prompt_includes_item_title(monkeypatch, tmp_path):
+    import ingest
+
+    seen = {}
+
+    def fake_ai(prompt, content, rules):
+        seen["content"] = content
+        return {"action": "create", "target": "03-软件开发/新.md", "title": "新", "content": "# 新"}
+
+    monkeypatch.setattr(ingest, "ai_json", fake_ai)
+    rules = {
+        "wiki": {
+            "index": "07-模板与系统/MOC/索引.md",
+            "log": "07-模板与系统/MOC/操作日志.md",
+            "writable": ["03-软件开发"],
+        }
+    }
+    sysdir = tmp_path / "07-模板与系统/MOC"
+    sysdir.mkdir(parents=True)
+    (sysdir / "索引.md").write_text("", encoding="utf-8")
+    ingest.digest({"kind": "daily", "title": "Slic3r 争议", "url": "https://x", "text": "正文"}, rules, tmp_path)
+    assert "素材标题: Slic3r 争议" in seen["content"]
+    assert "素材来源: https://x" in seen["content"]

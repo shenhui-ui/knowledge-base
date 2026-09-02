@@ -1,5 +1,6 @@
 """四阶段 ingest 管线：收集→筛选→消化→发布。"""
 import contextlib
+import difflib
 import fcntl
 import logging
 import re
@@ -119,6 +120,7 @@ def build_digest_prompt(rules: dict) -> str:
         "你是知识库编辑。根据索引与素材，决定合并到已有文章或新建文章。\n"
         f"消化规则：\n{digest_rules}\n"
         f"可写目标目录（target 必须位于以下其一之下，相对 vault 根）：\n{writable_dirs}\n"
+        "target 必须以 .md 结尾，文件名依据素材内容命名，不得照搬索引中其他文章的名称。\n"
         '输出严格 JSON：{"action": "merge|create", "target": "相对vault路径.md", "title": "文章标题", "content": "markdown正文"}。'
     )
 
@@ -138,6 +140,63 @@ def _resolve_target(raw: str, rules: dict, vault_root: Path) -> Path:
             raise ValueError("禁止覆盖系统文件")
     if not is_writable(target, rules):
         raise ValueError(f"AI 目标不在可写区: {target}")
+    return _force_md_suffix(target)
+
+
+_JUNK_SUFFIXES = {".pdf", ".json", ".html", ".htm", ".txt", ".xml", ".csv"}
+
+
+def _force_md_suffix(target: Path) -> Path:
+    """文章一律落盘为 .md：AI 误报的 pdf/json 等扩展名替换掉，无扩展名或特殊后缀（如 .0）则追加。"""
+    suffix = target.suffix.lower()
+    if suffix in _JUNK_SUFFIXES or suffix == ".md":
+        return target.with_suffix(".md")
+    return target.with_name(target.name + ".md")
+
+
+def _normalize_name(name: str) -> str:
+    return re.sub(r"[\s._\-\[\]()!！?？,，。:：;；·\"'“”]+", "", name).casefold()
+
+
+def _locate_article(name: str, vault_root: Path, rules: dict) -> Path | None:
+    for d in rules["wiki"].get("writable", []):
+        if d.endswith(".md"):
+            continue
+        candidate = vault_root / d / f"{name}.md"
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _find_similar_article(target: Path, index_text: str, vault_root: Path, rules: dict) -> Path | None:
+    """在索引里找与目标标题规范化后相同/前缀/高相似的文章，防止 AI 重复建文。"""
+    stem = _normalize_name(target.stem)
+    if not stem:
+        return None
+    best = None
+    best_ratio = 0.0
+    for m in re.finditer(r"\[\[([^\]|#]+)\]\]", index_text):
+        name = m.group(1).strip()
+        norm = _normalize_name(name)
+        if not norm:
+            continue
+        ratio = difflib.SequenceMatcher(None, stem, norm).ratio()
+        prefix = min(len(stem), len(norm)) >= 10 and (norm.startswith(stem) or stem.startswith(norm))
+        if not (stem == norm or prefix or ratio >= 0.85):
+            continue
+        located = _locate_article(name, vault_root, rules)
+        if located is not None and ratio > best_ratio:
+            best, best_ratio = located, ratio
+    return best
+
+
+def _ensure_merge_target(target: Path, index_text: str, vault_root: Path, rules: dict) -> Path:
+    if target.exists():
+        return target
+    similar = _find_similar_article(target, index_text, vault_root, rules)
+    if similar is not None:
+        logger.info("主题与已有文章近似，改走合并: %s -> %s", target.name, similar.name)
+        return similar
     return target
 
 
@@ -186,14 +245,14 @@ def digest(item: dict, rules: dict, vault_root: Path) -> Path:
     index_path = vault_root / rules["wiki"]["index"]
     index_text = index_path.read_text(encoding="utf-8") if index_path.exists() else ""
     prompt = build_digest_prompt(rules)
-    user = f"索引:\n{index_text[:3000]}\n\n素材:\n{body[:6000]}"
+    user = f"索引:\n{index_text[:3000]}\n\n素材标题: {item.get('title', '')}\n素材来源: {item.get('url') or '无'}\n\n素材正文:\n{body[:6000]}"
     result = ai_json(prompt, user, rules)
-    target = _resolve_target(result["target"], rules, vault_root)
+    target = _ensure_merge_target(_resolve_target(result["target"], rules, vault_root), index_text, vault_root, rules)
     if target.exists():
         existing = target.read_text(encoding="utf-8")[:2000]
-        merge_user = f"索引:\n{index_text[:3000]}\n\n已有文章内容:\n{existing}\n\n素材:\n{body[:6000]}"
+        merge_user = f"索引:\n{index_text[:3000]}\n\n已有文章内容:\n{existing}\n\n素材标题: {item.get('title', '')}\n素材来源: {item.get('url') or '无'}\n\n素材正文:\n{body[:6000]}"
         result = ai_json(prompt, merge_user, rules)
-        target = _resolve_target(result["target"], rules, vault_root)
+        target = _ensure_merge_target(_resolve_target(result["target"], rules, vault_root), index_text, vault_root, rules)
     target.parent.mkdir(parents=True, exist_ok=True)
     content = _normalize_frontmatter(result["content"], item.get("url") or "")
     target.write_text(content, encoding="utf-8")
