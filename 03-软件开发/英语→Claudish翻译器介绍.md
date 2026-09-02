@@ -3,9 +3,9 @@ type: ingest-note
 source: https://programasweights.com/claudish
 date: 2026-08-24
 ---
-### 英语 â Claudish 翻译器介绍
+### 英语 → Claudish 翻译器介绍
 
-Claudish 是一款提供多种语言翻译工具的平台或应用程序。以下是关于 English â Claudish Translator 的详细介绍：
+Claudish 是一款提供多种语言翻译工具的平台或应用程序。以下是关于 English → Claudish Translator 的详细介绍：
 
 #### 功能概述
 - 提供高效的文本翻译服务。
