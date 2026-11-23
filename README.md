@@ -1,5 +1,7 @@
 # 自生长知识库（Knowledge Base）
 
+[![CI](https://github.com/shenhui-ui/knowledge-base/actions/workflows/ci.yml/badge.svg)](https://github.com/shenhui-ui/knowledge-base/actions/workflows/ci.yml)
+
 > 基于 **Karpathy LLM Wiki 方法论** 的个人知识库：**素材收件箱 → LLM 提炼 → 结构化 Wiki 文章 → 自然语言检索 → 一致性体检**，内置每日自动化的科技资讯管线与 LLM 成本记账。
 
 **规模**：176 篇 Wiki 文章 · 25 个 Python 模块 · 11 个 pytest 测试文件 · 9 个分区 · 每日 01:00 自动运行
@@ -15,18 +17,17 @@
 ## 目录结构
 
 ```
-├── Obsidian/                          # Obsidian 库（Claudian / Dataview / Templater 插件）
-│   ├── AGENTS.md                      # 知识库管理员规则书：对话命令 + 读写安全边界 + YAML 规则
-│   ├── 00-收件箱/                     # 素材区（@manual 后缀 = 人工处理）
-│   ├── 01-日记/                       # 每日笔记
-│   ├── 02-资讯日报/                   # 自动化管线专用写区（日报 / 周报）
-│   ├── 03-软件开发/                   # Wiki 主题区（92 篇）
-│   ├── 04-AI与机器学习/               # Wiki 主题区（59 篇）
-│   ├── 05-数据分析/                   # Wiki 主题区（6 篇）
-│   ├── 06-项目/                       # 项目区
-│   ├── 07-模板与系统/                 # 规则、隐藏模板(.模板)、索引与日志(MOC/)、管线脚本(脚本/)
-│   └── 99-归档/                       # 归档区
-└── docs/superpowers/                  # 3 份设计文档（plans + specs，Superpowers 方法论）
+├── .obsidian/                     # Obsidian 配置（Claudian / Dataview / Templater 插件）
+├── AGENTS.md                      # 知识库管理员规则书：对话命令 + 读写安全边界 + YAML 规则
+├── 00-收件箱/                     # 素材区（@manual 后缀 = 人工处理）
+├── 01-日记/                       # 每日笔记
+├── 02-资讯日报/                   # 自动化管线专用写区（日报 / 周报）
+├── 03-软件开发/                   # Wiki 主题区（92 篇）
+├── 04-AI与机器学习/               # Wiki 主题区（59 篇）
+├── 05-数据分析/                   # Wiki 主题区（6 篇）
+├── 06-项目/                       # 项目区
+├── 07-模板与系统/                 # 规则、隐藏模板(.模板)、索引与日志(MOC/)、管线与自动化脚本(脚本/：tech_news、tech_wiki、wiki-manager)
+└── 99-归档/                       # 归档区
 ```
 
 ## 核心机制
@@ -55,7 +56,7 @@ sources.yaml（可编辑源清单）→ fetch → dedupe（.raw/urls.txt）→ �
 ## 运行
 
 ```bash
-cd Obsidian/07-模板与系统/脚本/tech_news
+cd 07-模板与系统/脚本/tech_news
 
 python3 pipeline.py          # 当日日更
 python3 pipeline.py --backfill   # 历史回溯（如 2026-08-01 ~ 08-08）
@@ -64,10 +65,6 @@ python3 pipeline.py --backfill   # 历史回溯（如 2026-08-01 ~ 08-08）
 pytest
 ```
 
-## 设计文档
-
-`docs/superpowers/`：3 份按 **Superpowers 方法论**（先规划后实现）沉淀的设计稿——自生长 Wiki 设计、Obsidian 知识库设计、科技资讯管线设计（含信息源选型与系统 Prompt 稳定性策略）。
-
 ## 关联项目
 
-- **obsidian-skill-wiki-manager**：本系统方法论的产品化 skill——`init / ingest / query / lint` 四能力 + 万字教程，可安装到任意本地 Markdown 知识库
+- **[obsidian-skill-wiki-manager](https://github.com/shenhui-ui/obsidian-skill-wiki-manager)**：本系统方法论的产品化 skill——`init / ingest / query / lint` 四能力 + 万字教程，可安装到任意本地 Markdown 知识库

@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pytest httpx feedparser pyyaml requests beautifulsoup4 watchdog
+
+      - name: Run tech_news tests
+        working-directory: "07-模板与系统/脚本/tech_news"
+        run: python -m pytest -q
+
+      - name: Run tech_wiki tests
+        working-directory: "07-模板与系统/脚本/tech_wiki"
+        run: python -m pytest -q
+
+      - name: Run archive_watcher tests
+        working-directory: "07-模板与系统/脚本"
+        run: python -m pytest -q test_archive_watcher.py
