@@ -1,0 +1,49 @@
+Dual License — 代码 MIT + 笔记 CC BY-NC 4.0
+==========================================
+
+本仓库内容按用途分为以下两类分别授权，第三方资讯原文权利归原权利人所有：
+
+---
+
+## 1. 脚本与工具代码（MIT License）
+
+适用范围：`07-模板与系统/脚本/` 下的自动化管线、体检、检索、监听脚本、测试代码与配置文件（以及 `.github/` 工作流）。
+
+MIT License
+
+Copyright (c) 2026 shenhui-ui
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## 2. 原创 Wiki 笔记与知识库结构（CC BY-NC 4.0）
+
+适用范围：本仓库内的原创 Wiki 提炼文章、目录组织、模板与规则文档（`AGENTS.md`、`07-模板与系统/` 非代码文档、各主题区整理笔记）。
+
+上述内容采用 **知识共享 署名-非商业性使用 4.0 国际许可协议（Creative Commons Attribution-NonCommercial 4.0 International, CC BY-NC 4.0）** 进行许可：
+
+- **您可以自由共享与演绎**，但必须给出适当署名、提供指向本许可协议的链接、说明是否做了修改，且**不得用于商业目的**。
+- 协议全文：<https://creativecommons.org/licenses/by-nc/4.0/legalcode>
+
+---
+
+## 3. 第三方来源声明
+
+各 Wiki 条目 `source` 字段及资讯日报中引用或摘录的第三方文章、新闻与项目资料，其著作权及一切相关权利均归原著作权人或原发布方所有；本仓库仅作个人学习、研究与索引整理用途。

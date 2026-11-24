@@ -1,6 +1,6 @@
 # 自生长知识库（Knowledge Base）
 
-[![CI](https://github.com/shenhui-ui/knowledge-base/actions/workflows/ci.yml/badge.svg)](https://github.com/shenhui-ui/knowledge-base/actions/workflows/ci.yml)
+[![CI](https://github.com/shenhui-ui/knowledge-base/actions/workflows/ci.yml/badge.svg)](https://github.com/shenhui-ui/knowledge-base/actions/workflows/ci.yml) ![Code: MIT](https://img.shields.io/badge/Code-MIT-yellow.svg) ![Wiki: CC BY-NC 4.0](https://img.shields.io/badge/Wiki-CC_BY--NC_4.0-lightgrey.svg)
 
 > 基于 **Karpathy LLM Wiki 方法论** 的个人知识库：**素材收件箱 → LLM 提炼 → 结构化 Wiki 文章 → 自然语言检索 → 一致性体检**，内置每日自动化的科技资讯管线与 LLM 成本记账。
 
@@ -68,3 +68,10 @@ pytest
 ## 关联项目
 
 - **[obsidian-skill-wiki-manager](https://github.com/shenhui-ui/obsidian-skill-wiki-manager)**：本系统方法论的产品化 skill——`init / ingest / query / lint` 四能力 + 万字教程，可安装到任意本地 Markdown 知识库
+
+## 许可证
+
+本仓库采用**代码 + 笔记双协议**，详情见 [LICENSE](LICENSE)：
+- **脚本与工具代码**：[MIT License](LICENSE)
+- **原创 Wiki 笔记与结构**：[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)（署名-非商业性使用）
+- **第三方来源**：各条目 `source` 指向的原始资讯与文章权利归原作者及原发布方所有
